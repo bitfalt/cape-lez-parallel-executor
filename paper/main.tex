@@ -29,15 +29,7 @@ Modern blockchain systems expose several approaches to this problem. Solana Seal
 
 This paper studies these ideas from a parallel computing perspective and applies them to Logos Execution Zone (LEZ), a Rust-based programmable execution environment with public and private state \cite{logos_execution_zone_github}. LEZ is an appropriate case study because its execution model separates validation from state mutation: validation can produce state diffs that are later committed to public accounts, nonces, commitments, nullifiers, and program state. This structure suggests a two-phase design: perform safe validation or computation in parallel, then commit deterministic diffs in canonical order.
 
-The project does not attempt to implement a production Logos node or compare directly against production systems whose internals are unavailable. Instead, it contributes a controlled prototype and evaluation. The contributions are:
-
-\begin{enumerate}
-\item a taxonomy of deterministic parallel blockchain execution strategies;
-\item a common conflict model covering public accounts, nonces, read/write sets, nullifiers, commitments, program deployments, and system barriers;
-\item a Logos-oriented case study identifying parallelizable validation and ordered-commit constraints;
-\item CAPE, a reproducible Rust prototype comparing sequential, static conflict-aware, and optimistic ordered-commit execution;
-\item an experimental evaluation under controlled workloads showing where parallel execution helps and where contention dominates.
-\end{enumerate}
+The project does not attempt to implement a production Logos node or compare directly against production systems whose internals are unavailable. Instead, it contributes a controlled experimental framework for reasoning about deterministic parallel execution. The paper combines a taxonomy of existing blockchain execution designs, a Logos-oriented conflict model, a reproducible Rust prototype, and a dual-environment evaluation. This scope is intentionally narrower than a production deployment, but it is sufficient to answer the central parallel-computing question: when does deterministic parallel execution preserve correctness while improving throughput, and when do conflicts and ordered commit dominate?
 
 \section{Background and Related Work}
 
@@ -266,15 +258,13 @@ Table 4 and Figure~\ref{fig:environment-comparison} show that Kabré is valuable
 
 \section{Contributions}
 
-This project makes five concrete contributions:
+The main contribution of this project is an experimental framework for studying deterministic parallel transaction execution in a way that is specific enough to be useful for Logos Execution Zone, but general enough to compare against established blockchain execution strategies. Rather than treating parallel execution as a single technique, the paper separates declared-access scheduling, optimistic execution, object-centric execution, asynchronous execution, and sequential execution into distinct design points. This taxonomy makes the tradeoffs explicit: some systems expose independence before execution, others discover conflicts dynamically, and all deterministic blockchains must preserve a canonical state transition.
 
-\begin{enumerate}
-\item it organizes related blockchain systems into a taxonomy of declared-access, optimistic, object-centric, asynchronous, and sequential designs;
-\item it defines a common conflict model for deterministic block execution over public accounts, nonces, state keys, nullifiers, commitments, program code, and system barriers;
-\item it applies the model to Logos Execution Zone and identifies safe parallel validation and ordered-commit boundaries;
-\item it implements CAPE as a reproducible Rust benchmark with sequential, static, and optimistic executors;
-\item it evaluates the prototype across 990 deterministic benchmark rows in local and Kabré environments and reports measured correctness, throughput, speedup, efficiency, overhead, and re-execution behavior.
-\end{enumerate}
+A second contribution is the conflict model used by CAPE. The model covers public account balances, signer nonces, arbitrary state keys, nullifiers, commitments, program code, and global system state. This is important because a Logos-like environment combines ordinary public state with private-state mechanisms, and those components do not have the same parallelization boundaries. The model therefore distinguishes work that can be safely computed over snapshots from state changes that must be committed in canonical order.
+
+The third contribution is the Rust prototype itself. CAPE implements a sequential correctness oracle, a static conflict-aware scheduler, and an optimistic executor with ordered commit and re-execution. The implementation is not presented as a production runtime; its value is that each executor operates over the same transaction and state model, making the comparison controlled and reproducible. The public artifact also includes the benchmark scripts, raw CSV outputs, generated figures, and the Kabré Slurm script used for the second environment.
+
+Finally, the evaluation contributes empirical evidence about where the proposed approach is effective. Across 990 benchmark rows, including both local and Kabré executions, all parallel runs matched the sequential final state hash and transaction outcomes. The results show that optimistic execution is the strongest strategy when enough independent work exists, while static scheduling collapses under hotspot, private-state, or barrier-heavy workloads. The dual-environment comparison adds an important practical nuance: more institutional hardware did not automatically produce a higher peak throughput, which reinforces that contention, memory behavior, and ordered commit are central limits for this class of execution engines.
 
 \section{Conclusions and Future Work}
 
